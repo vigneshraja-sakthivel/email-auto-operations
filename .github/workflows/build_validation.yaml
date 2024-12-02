@@ -1,0 +1,42 @@
+name: Build Validation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # Run Pylint
+      - name: Run Pylint
+        run: |
+          pylint src/**/*.py  tests/**/*.py --fail-under=8
+
+      # Run Tests
+      - name: Run tests with Pytest
+        run: |
+          pytest --maxfail=3 --disable-warnings

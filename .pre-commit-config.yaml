@@ -11,3 +11,14 @@ repos:
     rev: 24.10.0
     hooks:
     -   id: black
+- repo: local
+  hooks:
+    - id: pylint
+      name: pylint
+      entry: pylint
+      language: system
+      types: [python]
+      args:
+        [
+          "--fail-under=8",
+        ]
