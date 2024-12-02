@@ -9,6 +9,6 @@ def test_decode_base64():
 
     # Test with base64 encoded string with special characters
     assert (
-        decode_base64("U3BlY2lhbCBjaGFyYWN0ZXJzOihQCMkJV4mKigp")
+        decode_base64("U3BlY2lhbCBjaGFyYWN0ZXJzOiAhQCMkJV4mKigp")
         == "Special characters: !@#$%^&*()"
     )
