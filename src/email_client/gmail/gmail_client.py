@@ -1,0 +1,287 @@
+"""
+Gmail API client module for email operations.
+
+This module provides a client interface to interact with Gmail API for:
+- Authentication with OAuth2
+- Fetching emails with query filters
+- Parsing email messages and attachments
+- Batch processing of messages
+
+Usage:
+    client = GmailClient(config)
+    messages = client.get_messages({"in": "inbox"})
+"""
+
+import os
+from datetime import datetime
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+
+from logger import get_logger
+from utils.encoders import decode_base64
+from utils.parsers import extract_name_and_email_from_sender_string
+
+logger = get_logger(__name__)
+
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+]
+
+
+class GmailClient:
+    """
+    Client for interacting with Gmail API.
+
+    This class handles:
+    - OAuth2 authentication flow
+    - Token management and refresh
+    - Message retrieval and parsing
+    - Batch operations for efficiency
+
+    Attributes:
+        credentials_path (str): Path to OAuth2 credentials file
+        token_path (str): Path to store/retrieve OAuth tokens
+    """
+
+    def __init__(self, config: dict):
+        """
+        Initialize the Gmail Client with the given configuration.
+
+        Args:
+            config (dict): Holds the path of credentials and token for the Gmail Client
+
+        Raises:
+            ValueError: If credentials and token path are not provided
+            FileNotFoundError: If credentials file is not found
+        """
+        if not config.get("credentials_path") or not config.get("token_path"):
+            raise ValueError("Credentials and token path are required")
+
+        if not os.path.exists(config.get("credentials_path")):
+            raise FileNotFoundError("Credentials file not found")
+
+        self.credentials_path = config.get("credentials_path")
+        self.token_path = config.get("token_path")
+
+    def authenticate(self):
+        """
+        Initiates the Authentication process for the User.
+
+        Returns:
+            A Gmail Resource object with methods for interacting with the service.
+        """
+        creds = None
+        if os.path.exists(self.token_path):
+            creds = Credentials.from_authorized_user_file(self.token_path, SCOPES)
+
+        if not creds:
+            creds = self._get_credentials()
+
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+
+        with open(self.token_path, "w", encoding="utf-8") as token:
+            token.write(creds.to_json())
+
+        return build("gmail", "v1", credentials=creds)
+
+    def _get_credentials(self) -> Credentials:
+        """
+        Initiates the OAuth2 flow to get the credentials.
+
+        Returns:
+            Credentials: A Credentials object with the required token.
+        """
+        flow = InstalledAppFlow.from_client_secrets_file(
+            self.credentials_path,
+            SCOPES,
+        )
+        creds = flow.run_local_server(port=0)
+        return creds
+
+    def get_messages(self, query=None):
+        """
+        Fetches the messages based on the query provided.
+
+        Args:
+            query (dict, optional): Query . Defaults to "in: inbox".
+
+        Returns:
+            : List of messages
+        """
+        if query is None:
+            query = {"in": "inbox"}
+        try:
+            all_messages = []
+            service = self.authenticate()
+            query_string = self._build_query(query)
+            current_messages, next_page_token = self._do_get_messages(
+                service, query_string
+            )
+            all_messages.extend(current_messages)
+
+            while next_page_token:
+                logger.info("Next Page Token: %s", next_page_token)
+                current_messages, next_page_token = self._do_get_messages(
+                    service, query_string, next_page_token
+                )
+                all_messages.extend(current_messages)
+                logger.info(
+                    "Total messages fetched: %d. Last message timestamp: %s",
+                    len(all_messages),
+                    all_messages[-1].get("timestamp"),
+                )
+
+            return all_messages
+        except Exception as error:
+            logger.error("An error occurred while getting messages: %s", error)
+            return []
+
+    def _do_get_messages(self, service, query, next_page_token=None):
+        """
+        Fetches the messages based on the query provided.
+
+        Args:
+            service (_type_): Gmail Service Object
+            query (str): Query to filter the messages
+            next_page_token (str, optional): Next page token. Defaults to None.
+
+        Returns:
+            tuple: list of message details and next page token
+        """
+        results = (
+            service.users()
+            .messages()
+            .list(userId="me", q=query, maxResults=1, pageToken=next_page_token)
+            .execute()
+        )
+        messages = results.get("messages", [])
+        message_ids = [message["id"] for message in messages]
+        return self._get_messages_details(message_ids), results.get("nextPageToken")
+
+    def _get_messages_details(self, message_ids: list):
+        """
+        Pulls the message details for the given message ids.
+        Uses the batch processing to fetch the details for multiple messages.
+
+        Args:
+            message_ids (list): Message IDs to fetch the details for
+
+        Returns:
+            list: List of message details
+        """
+        try:
+            service = self.authenticate()
+            results = []
+
+            def callback(request_id, response, exception):
+                if exception:
+                    print(f"Error in batch request for {request_id}: {exception}")
+                else:
+                    results.append(self._parse_message(response))
+
+            batch = service.new_batch_http_request(callback=callback)
+            for message_id in message_ids:
+                batch.add(
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=message_id, format="full")
+                )
+
+            batch.execute()
+            return results
+        except Exception as error:
+            print(f"An error occurred during batch processing: {error}")
+            return []
+
+    def _parse_message(self, message):
+        """
+        Parses the message and extracts the required details.
+
+        Args:
+            message: Message object
+
+        Returns:
+            dict: Extracted message details containitng subject, from, timestamp and body
+        """
+        payload = message.get("payload", {})
+        headers = payload.get("headers", [])
+        body = self._get_body(payload)
+        message_details = {}
+        allowed_message_details = ["subject", "from", "timestamp"]
+
+        for header in headers:
+            if header["name"].lower() in allowed_message_details:
+                message_details[header["name"]] = header["value"]
+
+        timestamp = int(message.get("internalDate", 0))
+
+        return {
+            "subject": message_details.get("subject", "No Subject"),
+            "from": extract_name_and_email_from_sender_string(
+                message_details.get("from", "No Sender")
+            ),
+            "timestamp": timestamp,
+            "body": body,
+        }
+
+    def _get_body(self, payload) -> str:
+        """
+        Helper function to extract the message body string.
+
+        Args:
+            payload (dict): Message Body Payload
+
+        Returns:
+            str: Extracted message body
+        """
+        try:
+            if payload.get("body", {}).get("data"):
+                return decode_base64(payload.get("body").get("data"))
+
+            if not payload.get("parts"):
+                return ""
+
+            for part in payload.get("parts"):
+                if part.get("mimeType") == "text/plain" and part.get("body", {}).get(
+                    "data"
+                ):
+                    return decode_base64(part["body"]["data"])
+
+            return ""
+        except Exception as error:
+            print(f"An error occurred while extracting the body: {error}")
+            return "Error extracting body"
+
+    def _build_query(self, query: dict) -> str:
+        """
+        Helper function to build the query string based on the provided dictionary.
+
+        Args:
+            query (dict): Query dictionary containing the key-value pairs
+        """
+        supported_keys = ["from", "to", "subject", "in", "before", "after"]
+        supported_keys_query = {
+            key: value for key, value in query.items() if key in supported_keys
+        }
+
+        date_query_fields = ["before", "after"]
+        for field in date_query_fields:
+            if not query.get(field):
+                continue
+
+            if not isinstance(query.get(field), datetime):
+                raise ValueError(f"{field} should be a datetime object")
+
+            supported_keys_query[field] = query.get(field).strftime("%Y/%m/%d")
+
+        return " ".join([f"{key}:{value}" for key, value in query.items()])
+
+    def __del__(self):
+        """
+        Destructor to remove the token file if it exists
+        """
+        if os.path.exists(self.token_path):
+            os.remove(self.token_path)

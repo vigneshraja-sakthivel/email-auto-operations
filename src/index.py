@@ -1,8 +1,18 @@
 import argparse
+import os
+
+from config import GMAIL_CONFIGURATIONS, TMP_DIRECTORY
+from email_client.gmail.gmail_client import GmailClient
 from logger import get_logger
 
-
 logger = get_logger(__name__)
+
+
+def _get_email_client():
+    """
+    Returns the email client based on the configuration
+    """
+    return GmailClient(GMAIL_CONFIGURATIONS)
 
 
 def _add_email_argument(parser: argparse.ArgumentParser):
@@ -19,6 +29,17 @@ def _add_email_argument(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--email", type=str, required=True, help="Specify an email address"
     )
+
+
+def _init_app():
+    """
+    Initializes the application by creating the required directories
+    """
+    for directory in [TMP_DIRECTORY]:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    logger.info("Application initialized successfully")
 
 
 def main():
@@ -44,6 +65,9 @@ def main():
     # Parse the arguments
     parser.parse_args()
     logger.info("Arguments parsed successfully. Implement the logic here.")
+    logger.info("Initializing the application")
+    _init_app()
+    logger.info("Initialied the application successfully")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+\# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -163,3 +163,7 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+# Temp folder and Credentials Folder
+credentials/*
+temp/

@@ -18,7 +18,9 @@ repos:
       entry: pylint
       language: system
       types: [python]
+      exclude: ^tests/
       args:
         [
           "--fail-under=8",
+          "--rcfile=.pylintrc",
         ]

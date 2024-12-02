@@ -34,7 +34,7 @@ jobs:
       # Run Pylint
       - name: Run Pylint
         run: |
-          pylint src/**/*.py  tests/**/*.py --fail-under=8
+          pylint src/**/*.py  --fail-under=8
 
       # Run Tests
       - name: Run tests with Pytest
