@@ -1,18 +1,37 @@
 import argparse
 import os
 
-from config import GMAIL_CONFIGURATIONS, TMP_DIRECTORY
-from email_client.gmail.gmail_client import GmailClient
+from config import DB_CONFIGURATIONS, GMAIL_CONFIGURATIONS, TMP_DIRECTORY
+from command_processor.email_fetcher import EmailFetcher
+from command_processor.command_processor_interface import CommandProcessorInterface
+from db.db_client import DbClient
+from email_clients.email_client_interface import EmailClientInterface
+from email_clients.gmail.gmail_client import GmailClient
 from logger import get_logger
+
 
 logger = get_logger(__name__)
 
 
-def _get_email_client():
+def _get_email_client() -> EmailClientInterface:
     """
     Returns the email client based on the configuration
     """
     return GmailClient(GMAIL_CONFIGURATIONS)
+
+
+def _get_db_client() -> DbClient:
+    """
+    Returns the db client based on the configuration
+    """
+    return DbClient(DB_CONFIGURATIONS)
+
+
+def _get_processor() -> CommandProcessorInterface:
+    """
+    Returns the processor based on the configuration
+    """
+    return EmailFetcher(_get_email_client(), _get_db_client())
 
 
 def _add_email_argument(parser: argparse.ArgumentParser):
@@ -68,6 +87,7 @@ def main():
     logger.info("Initializing the application")
     _init_app()
     logger.info("Initialied the application successfully")
+    _get_processor().execute()
 
 
 if __name__ == "__main__":
