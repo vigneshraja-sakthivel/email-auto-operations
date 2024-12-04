@@ -11,6 +11,7 @@ Functions:
 """
 
 import os
+from dotenv import load_dotenv
 
 APP_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 CREDENTIALS_DIRECTOR = f"{APP_PATH}/credentials"
@@ -18,4 +19,15 @@ TMP_DIRECTORY = f"{APP_PATH}/temp"
 GMAIL_CONFIGURATIONS = {
     "credentials_path": f"{CREDENTIALS_DIRECTOR}/google_credentials.json",
     "token_path": f"{TMP_DIRECTORY}/gmail_token.json",
+}
+
+# Load environment variables from .env file
+load_dotenv()
+
+DB_CONFIGURATIONS = {
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT")),
+    "database": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
 }
