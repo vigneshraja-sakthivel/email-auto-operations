@@ -1,0 +1,23 @@
+{
+  "description": "Move Test Emails to Trash",
+  "condition": "all",
+  "rules": [
+    {
+      "field_name": "from",
+      "predicate": "contains",
+      "value": "vigneshraja.sakthivel@gmail.com"
+    },
+    {
+      "field_name": "subject",
+      "predicate": "contains",
+      "value": "test"
+    },
+    {
+      "field_name": "to",
+      "predicate": "contains",
+      "value": "vigneshraja.sakthivel@gmail.com"
+    }
+  ],
+  "action": "move",
+  "action_target": "TRASH"
+}

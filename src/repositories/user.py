@@ -20,16 +20,29 @@ class UserRepository(BaseRepository):
         Returns:
             int: The ID of the upserted or existing user.
         """
-
+        user_id = None
         db_client = self._get_db_client()
         user_record_object = {
             "email_address": email_address,
         }
-        count = db_client.count("users", {"email_address": email_address})
-
-        if count == 0:
-            db_client.insert("users", user_record_object)
-            db_client.commit_transaction()
-
         user = db_client.fetch_one("users", {"email_address": email_address})
-        return user["id"]
+        if user:
+            return user.get("id")
+
+        user_id = db_client.insert("users", user_record_object)
+        db_client.commit_transaction()
+
+        return user_id
+
+    def get_user_by_email(self, email_address: str) -> dict:
+        """
+        Fetches a user by their email address.
+        Args:
+            email_address (str): The email address of the user to fetch.
+        Returns:
+            dict: The user record.
+        """
+
+        db_client = self._get_db_client()
+        user = db_client.fetch_one("users", {"email_address": email_address})
+        return user

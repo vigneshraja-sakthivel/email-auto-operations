@@ -1,0 +1,18 @@
+{
+  "description": "Move Test Emails to Trash",
+  "condition": "all",
+  "rules": [
+    {
+      "field_name": "from",
+      "predicate": "contains",
+      "value": "github.com"
+    },
+    {
+      "field_name": "subject",
+      "predicate": "contains",
+      "value": "Build failed"
+    }
+  ],
+  "action": "mark_read",
+  "action_target": ""
+}
