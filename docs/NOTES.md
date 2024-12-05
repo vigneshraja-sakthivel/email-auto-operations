@@ -5,11 +5,17 @@
 1. **Authorization**: Gmail API is used for user authorization.
 2. **OAuth2**: Server-side OAuth2 is implemented. The script opens a browser for the user to provide access.
 3. **Credential Validation**: User credentials are validated.
-4. **Email Fetching**:
+4. **User Creation**:
+   - Checks if the email address is available in the system already.
+   - If not available user is being created
+5. **Folder Fetching**
+   - Folders (Labels in Gmail) are pulled and persisted in the system.
+   - Status labels like (UNREAD, IMPORTANT) and Category labels are filtered out before persisting the labels as  fodler
+5. **Email Fetching**:
    - Email list is pulled, returning a list of `threadId` and `messageId`.
    - Email details are fetched using the Get Message API.
-5. **Body Processing**: Email body is converted to plain text using `bs4` and stored in a separate field to support future workflow rules.
-6. **Stored Email Data**: The following details are saved in the database:
+6. **Body Processing**: Email body is converted to plain text using `bs4` and stored in a separate field to support future workflow rules.
+7. **Stored Email Data**: The following details are saved in the database:
    - Message ID
    - Body
    - Plain Text Body

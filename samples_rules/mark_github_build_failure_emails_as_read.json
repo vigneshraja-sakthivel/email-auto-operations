@@ -11,8 +11,14 @@
       "field_name": "subject",
       "predicate": "contains",
       "value": "Build failed"
+    },
+    {
+      "field_name": "date_received",
+      "predicate": "less_than",
+      "value": 2,
+      "value_unit": "days"
     }
   ],
-  "action": "mark_read",
+  "action": "mark_as_read",
   "action_target": ""
 }

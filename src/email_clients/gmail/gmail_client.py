@@ -30,6 +30,7 @@ from utils.encoders import decode_base64
 from utils.parsers import (
     parse_address_field,
     parse_multiple_address_field,
+    extract_plain_text_from_html,
 )
 
 logger = get_logger(__name__)
@@ -161,7 +162,6 @@ class GmailClient(EmailClientInterface):
                 yield current_messages
         except Exception as error:
             logger.error("An error occurred while getting messages: %s", error)
-            return []
 
     @require_auth
     def get_folders(self) -> list:
@@ -347,6 +347,7 @@ class GmailClient(EmailClientInterface):
             "from": parse_address_field(message_details.get("from")),
             "received_timestamp": timestamp,
             "body": body,
+            "body_plain_text": extract_plain_text_from_html(body),
             "to": parse_multiple_address_field(message_details.get("to", "")),
             "cc": parse_multiple_address_field(message_details.get("cc", "")),
             "id": message.get("id", None),
@@ -469,5 +470,4 @@ class GmailClient(EmailClientInterface):
         Destructor to remove the token file if it exists
         """
         if os.path.exists(self._token_path):
-            # os.remove(self._token_path)
-            pass
+            os.remove(self._token_path)

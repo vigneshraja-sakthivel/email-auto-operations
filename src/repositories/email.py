@@ -62,6 +62,17 @@ class EmailRepository(BaseRepository):
             None
         """
 
+        count = self._get_db_client().count(
+            "emails",
+            {
+                "provider_id": email.get("id"),
+                "user_id": user_id,
+            },
+        )
+
+        if count > 0:
+            return
+
         email_record_object = {
             "subject": email.get("subject", ""),
             "provider_id": email.get("id", None),

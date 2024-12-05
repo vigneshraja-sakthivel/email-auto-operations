@@ -78,7 +78,7 @@
     },
     "action": {
       "type": "string",
-      "enum": ["mark_read", "move"]
+      "enum": ["mark_as_read", "move"]
     },
     "action_target": {
       "type": "string"

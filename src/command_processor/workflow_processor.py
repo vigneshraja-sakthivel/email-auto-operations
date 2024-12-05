@@ -50,9 +50,13 @@ class WorkflowProcessor(CommandProcessorInterface):
             self._process_rules(params.get("workflow_file_path"))
 
             logger.info("Workflow processed successfully.")
+        except ValidationError as e:
+            logger.error(
+                "Invalid Workflow JSON. Validation error occurred while processing the workflow:",
+            )
         except Exception as e:
             logger.error(
-                f"Error occurred while processing the workflow: %s. Error Trace: %s",
+                "Error occurred while processing the workflow: %s. Error Trace: %s",
                 e,
                 traceback.print_exc(),
             )
@@ -160,13 +164,13 @@ class WorkflowProcessor(CommandProcessorInterface):
         """
         try:
             logger.info(
-                f"Applying action on the email (%s) during run (%s).",
+                "Applying action on the email (%s) during run (%s).",
                 email_id,
                 run_id,
             )
 
             email_action = workflow.get("action")
-            if email_action == "mark_read":
+            if email_action == "mark_as_read":
                 self._email_client.mark_as_read(provider_id)
             elif email_action == "move":
                 self._email_client.move_to_folder(
@@ -175,13 +179,13 @@ class WorkflowProcessor(CommandProcessorInterface):
 
             self._add_workflow_run_log(run_id, email_id, email_action)
             logger.info(
-                f"Applied action on the email (%s) during run (%s).",
+                "Applied action on the email (%s) during run (%s).",
                 email_id,
                 run_id,
             )
         except Exception as e:
             logger.error(
-                f"Error occurred while applying action on the email (%s) during run (%s): %s.",
+                "Error occurred while applying action on the email (%s) during run (%s): %s.",
                 email_id,
                 run_id,
                 e,
