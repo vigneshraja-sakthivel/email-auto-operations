@@ -17,8 +17,8 @@ APP_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 CREDENTIALS_DIRECTOR = f"{APP_PATH}/credentials"
 TMP_DIRECTORY = f"{APP_PATH}/temp"
 GMAIL_CONFIGURATIONS = {
-    "credentials_path": f"{CREDENTIALS_DIRECTOR}/google_credentials.json",
-    "token_path": f"{TMP_DIRECTORY}/gmail_token.json",
+    "credentials_path": f"{CREDENTIALS_DIRECTOR}/client_secrets.json",
+    "token_path": f"{TMP_DIRECTORY}/user_token.json",
 }
 
 WORKFLOW_VALIDATION_SCHEMA = f"{APP_PATH}/schema/workflow_schema.json"
