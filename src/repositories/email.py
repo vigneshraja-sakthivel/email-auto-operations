@@ -4,8 +4,9 @@ CRUD operations related to emails in the database. It includes methods for upser
 emails, email recipients, folder-email associations, and email attachments.
 """
 
-from logger import get_logger
 from datetime import datetime, timezone
+
+from logger import get_logger
 from repositories.base import BaseRepository
 
 logger = get_logger(__name__)
@@ -35,7 +36,9 @@ STRING_OPERATORS = {
     "equals": "{field_name} = '{value}'",
     "not_equals": "{field_name} != '{value}'",
     "contains_tsvechor": "to_tsvector('english', {field_name}) @@ plainto_tsquery('{value}')",
-    "does_not_contains_tsvechor": "NOT to_tsvector('english', {field_name}) @@ plainto_tsquery('{value}')",
+    "does_not_contains_tsvechor": (
+        "NOT to_tsvector('english', {field_name}) @@ plainto_tsquery('{value}')"
+    ),
     "contains": "{field_name} ILIKE '%{value}%'",
     "does_not_contains": "{field_name} NOT ILIKE '%{value}%'",
 }
@@ -77,6 +80,7 @@ class EmailRepository(BaseRepository):
             "subject": email.get("subject", ""),
             "provider_id": email.get("id", None),
             "body": email.get("body", ""),
+            "body_plain_text": email.get("body_plain_text", ""),
             "received_timestamp": datetime.fromtimestamp(
                 email.get("received_timestamp") / 1000, tz=timezone.utc
             ),
@@ -125,7 +129,8 @@ class EmailRepository(BaseRepository):
 
     def get_email_timestamp_extremes(self, user_id: int, folder: str = None):
         """
-        Retrieve the timestamp of the latest email received by the user and the timestamp of the oldest email received by the user.
+        Retrieve the timestamp of the latest email received by the user and the
+        timestamp of the oldest email received by the user.
         Args:
             user_id (int): The ID of the user for whom to retrieve the email timestamps.
 
@@ -134,17 +139,15 @@ class EmailRepository(BaseRepository):
         """
         query = ""
         if not folder:
-            query = """
+            query = f"""
                 SELECT
                     MAX(received_timestamp) AS latest_email_timestamp,
                     MIN(received_timestamp) AS oldest_email_timestamp
                 FROM emails
                 WHERE user_id = {user_id}
-            """.format(
-                user_id=user_id
-            )
+            """
         else:
-            query = """
+            query = f"""
                 SELECT
                     MAX(received_timestamp) AS latest_email_timestamp,
                     MIN(received_timestamp) AS oldest_email_timestamp
@@ -152,9 +155,7 @@ class EmailRepository(BaseRepository):
                 JOIN email_folders ef ON e.id = ef.email_id
                 JOIN folders f ON ef.folder_id = f.id
                 WHERE e.user_id = {user_id} AND LOWER(f.name) = LOWER('{folder}')
-            """.format(
-                user_id=user_id, folder=folder
-            )
+            """
 
         result = self._get_db_client().query(query)
 
@@ -163,8 +164,8 @@ class EmailRepository(BaseRepository):
                 result[0]["latest_email_timestamp"],
                 result[0]["oldest_email_timestamp"],
             )
-        else:
-            return None, None
+
+        return None, None
 
     def _build_apply_filter_query(
         self, workflow: dict, user_id: int, last_processed_id: int, batch_size: int
@@ -174,26 +175,21 @@ class EmailRepository(BaseRepository):
         Args:
             workflow (dict): A dictionary containing the workflow rules and conditions.
             user_id (int): The ID of the user for whom the query is being built.
-            last_processed_id (int): The ID of the last processed email, used to filter out already processed emails.
+            last_processed_id (int): The ID of the last processed email, used to filter
+                out already processed emails.
             batch_size (int): The number of records to fetch in the query.
         Returns:
             str: The constructed SQL query string.
         """
-        query = "SELECT emails.id, emails.provider_id FROM {table}".format(
-            table="emails"
-        )
+        query = "SELECT emails.id, emails.provider_id FROM emails"
         condition_where_clause_conditions = []
         where_clause_concat_condition = (
-            workflow.get("condition", "all") == "all" and "AND" or "OR"
+            "AND" if workflow.get("condition", "all") == "all" else "OR"
         )
 
-        default_where_clause_conditions = [
-            "emails.user_id = {user_id}".format(user_id=user_id)
-        ]
+        default_where_clause_conditions = [f"emails.user_id = {user_id}"]
         if last_processed_id:
-            default_where_clause_conditions.append(
-                "emails.id < {id}".format(id=last_processed_id)
-            )
+            default_where_clause_conditions.append(f"emails.id < {last_processed_id}")
 
         for rule in workflow.get("rules", []):
             field_name = FILTER_FIELDS_MAPPING[rule.get("field_name")]["field_name"]
@@ -221,18 +217,14 @@ class EmailRepository(BaseRepository):
                     )
                 )
 
-        query += " WHERE {default_where_clause} AND ({where_clause})".format(
-            default_where_clause=" AND ".join(default_where_clause_conditions),
-            where_clause=(
-                " {where_clause_concat_condition} ".format(
-                    where_clause_concat_condition=where_clause_concat_condition
-                )
-            ).join(condition_where_clause_conditions),
+        default_where_clause = " AND ".join(default_where_clause_conditions)
+        search_where_clause = (f" {where_clause_concat_condition} ").join(
+            condition_where_clause_conditions
         )
 
-        query += " ORDER BY emails.id DESC LIMIT {batch_size}".format(
-            batch_size=batch_size
-        )
+        query += f" WHERE {default_where_clause} AND ({search_where_clause})"
+
+        query += f" ORDER BY emails.id DESC LIMIT {batch_size}"
         logger.info("Filter query: %s", query)
         return query
 
@@ -242,7 +234,8 @@ class EmailRepository(BaseRepository):
 
         Args:
             field_name (str): The name of the field to which the condition is applied.
-            operator (str): The operator to use for the condition. Must be one of the keys in STRING_OPERATORS.
+            operator (str): The operator to use for the condition. Must be one of the
+            keys in STRING_OPERATORS.
             value (str): The value to compare the field against.
 
         Returns:
@@ -254,8 +247,8 @@ class EmailRepository(BaseRepository):
 
         if operator in STRING_OPERATORS:
             return STRING_OPERATORS[operator].format(field_name=field_name, value=value)
-        else:
-            raise ValueError(f"Unsupported operator: {operator}")
+
+        raise ValueError(f"Unsupported operator: {operator}")
 
     def _apply_timestamp_condition(self, field_name, operator, value, value_type):
         """
@@ -275,8 +268,8 @@ class EmailRepository(BaseRepository):
             return TIMESTAMP_OPERATORS[operator].format(
                 field_name=field_name, value=value, value_type=value_type
             )
-        else:
-            raise ValueError(f"Unsupported operator: {operator}")
+
+        raise ValueError(f"Unsupported operator: {operator}")
 
     def _upsert_email_recipient(
         self, email_id: str, address: dict, recipient_type: str

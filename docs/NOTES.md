@@ -43,6 +43,28 @@
 ### Performance Consideration
 - `tsvector` and `tsquery` are used for subject field search. This can be extended to the body field in the future.
 
+### Sample SQL Query to identify email matching the rules
+
+```SQL
+SELECT emails.id,
+emails.provider_id
+FROM
+  emails
+WHERE
+  emails.user_id = 1
+  AND (
+    CONCAT(
+      sender_email_address, ' ', sender_name
+    ) ILIKE '%github.com%'
+    AND to_tsvector('english', subject) @@ plainto_tsquery('Build failed')
+    AND received_timestamp < NOW() - interval '2 days'
+  )
+ORDER BY
+  emails.id DESC
+LIMIT
+  50
+
+```
 ---
 
 ## Library Usage

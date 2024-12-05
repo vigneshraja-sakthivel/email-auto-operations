@@ -99,8 +99,8 @@ CREATE TABLE workflow_run_activity (
 );
 
 
-CREATE INDEX idx_emails_sender_tsvector ON emails USING GIN (to_tsvector('english', "sender_name" || ' ' || "sender_email_address"));
-CREATE INDEX idx_emails_reciepient_tsvector ON email_recipients USING GIN (to_tsvector('english', "name" || ' ' || "email_address"));
+CREATE INDEX idx_emails_sender_name_email ON emails ("sender_name" text_pattern_ops, "sender_email_address" text_pattern_ops);
+CREATE INDEX idx_emails_recipient_name_email ON email_recipients ("name" text_pattern_ops, "email_address" text_pattern_ops);
 CREATE INDEX idx_emails_subject_tsvector ON emails USING GIN (to_tsvector('english', "subject"));
 CREATE INDEX idx_emails_body_plain_text_tsvector ON emails USING GIN (to_tsvector('english', "body_plain_text"));
 CREATE INDEX idx_emails_received_timestamp_brin ON emails USING BRIN (received_timestamp);
