@@ -24,7 +24,7 @@ Python-based CLI script to manage your inbox based on a defined set of rules.
 
 4. **Configure Google OAuth2.** See [Configure Google OAuth2 Application](#configure-google-oauth2-application) for details.
 
-5.
+5. **Create the database and run the DDL scripts.** DDL scripts can be found in `schema.sql`.
 
 6. **Configure the .env file.** Copy the `.env.sample` and update the requried environment values
 
@@ -63,7 +63,7 @@ To access Gmail APIs, follow these steps:
 ### Note:
 * Select "External" for User Type when configuring the OAuth Consent Form.
 * Add test users for testing the implementation.
-* Enable the scope: `https://www.googleapis.com/auth/gmail.readonly`.
+* Enable the scope: `https://www.googleapis.com/auth/gmail.modify`.
 
 ### References:
 * [Google Cloud Support](https://support.google.com/cloud/answer/6158849?hl=en)
@@ -83,3 +83,5 @@ To set up the pre-commit hooks, use the following command:
 ```sh
 pre-commit install
 ```
+
+Read the detailed developer notes at [a developer notes](docs/NOTES.md)
