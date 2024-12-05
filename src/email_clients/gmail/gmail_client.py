@@ -35,10 +35,10 @@ from utils.parsers import (
 logger = get_logger(__name__)
 
 SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.modify",
 ]
-EMAIL_FETCH_LIMIT = 1
-MESSAGE_STATUS_LABELS = ["STARRED", "UNREAD", "IMPORTANT"]
+EMAIL_FETCH_LIMIT = 50
+MESSAGE_STATUS_LABELS = ["SENT", "STARRED", "UNREAD", "IMPORTANT"]
 
 
 def require_auth(func: Callable) -> Callable:
@@ -119,12 +119,13 @@ class GmailClient(EmailClientInterface):
         return user.get("emailAddress")
 
     @require_auth
-    def get_emails(self, folder: str = None, query: dict = None):
+    def get_emails(self, batch_size: int, folder: str = None, query: dict = None):
         """
         Fetches the messages based on the query provided.
 
         Args:
             folder (str): Folder name to fetch the messages from
+            batch_size (int): Number of messages to fetch in a single batch
             query (dict, optional): Query . Defaults to {"in": "inbox"}.
 
         Yields:
@@ -140,13 +141,15 @@ class GmailClient(EmailClientInterface):
             all_messages = []
             query_string = self._build_query(query)
 
-            current_messages, next_page_token = self._do_get_messages(query_string)
+            current_messages, next_page_token = self._do_get_messages(
+                query_string, batch_size
+            )
             yield current_messages
 
             while next_page_token:
                 logger.info("Next Page Token: %s", next_page_token)
                 current_messages, next_page_token = self._do_get_messages(
-                    query_string, next_page_token
+                    query_string, batch_size, next_page_token
                 )
                 all_messages.extend(current_messages)
                 logger.info(
@@ -192,6 +195,39 @@ class GmailClient(EmailClientInterface):
         if not os.path.exists(self._token_path):
             raise AuthenticationError("Email Authentication is not performed")
 
+    def mark_as_read(self, message_id: str):
+        """
+        Marks the message as read.
+
+        Args:
+            message_id (str): Message ID to mark as read
+        """
+        self._service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"removeLabelIds": ["UNREAD"]},
+        ).execute()
+
+    def move_to_folder(self, message_id: str, folder: str):
+        """
+        Moves the message to the specified folder.
+
+        Args:
+            message_id (str): Message ID to mark as read
+            current_folders (list): List of current folders
+            folder (str): Folder name to move the message to
+        """
+        maessage = self._get_messages_details([message_id])
+        current_folders = []
+        if maessage and maessage[0]:
+            current_folders = maessage[0].get("folders", [])
+
+        self._service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"addLabelIds": [folder], "removeLabelIds": current_folders},
+        ).execute()
+
     def _get_credentials(self) -> Credentials:
         """
         Initiates the OAuth2 flow to get the credentials.
@@ -207,28 +243,38 @@ class GmailClient(EmailClientInterface):
         return creds
 
     @require_auth
-    def _do_get_messages(self, query: str, next_page_token=None):
+    def _do_get_messages(
+        self,
+        query: str,
+        max_results: int,
+        next_page_token=None,
+    ):
         """
         Fetches the messages based on the query provided.
 
         Args:
             service (_type_): Gmail Service Object
             query (str): Query to filter the messages
+            max_results (int): Maximum number of results to fetch
             next_page_token (str, optional): Next page token. Defaults to None.
 
         Returns:
             tuple: list of message details and next page token
         """
         logger.info(
-            "Fetching messages with query: %s, pageToken: %s", query, next_page_token
+            "Fetching messages with query: %s, pageToken: %s max_results: %s",
+            query,
+            next_page_token,
+            max_results,
         )
+
         results = (
             self._service.users()
             .messages()
             .list(
                 userId="me",
                 q=query,
-                maxResults=EMAIL_FETCH_LIMIT,
+                maxResults=max_results,
                 pageToken=next_page_token,
             )
             .execute()
@@ -387,12 +433,12 @@ class GmailClient(EmailClientInterface):
         Args:
             query (dict): Query dictionary containing the key-value pairs
         """
-        supported_keys = ["from", "to", "subject", "in", "before", "after"]
+        supported_keys = ["from", "to", "subject", "in", "before", "after", "in"]
         supported_keys_query = {
             key: value for key, value in query.items() if key in supported_keys
         }
 
-        date_query_fields = ["before", "after"]
+        date_query_fields = ["before", "after", "-before", "-after"]
         for field in date_query_fields:
             if not query.get(field):
                 continue
@@ -400,9 +446,11 @@ class GmailClient(EmailClientInterface):
             if not isinstance(query.get(field), datetime):
                 raise ValueError(f"{field} should be a datetime object")
 
-            supported_keys_query[field] = query.get(field).strftime("%Y/%m/%d")
+            supported_keys_query[field] = int(round(query.get(field).timestamp()))
 
-        return " ".join([f"{key}:{value}" for key, value in query.items()])
+        return " ".join(
+            [f"{key}:{value}" for key, value in supported_keys_query.items()]
+        )
 
     def _is_folder(self, label: str) -> str:
         """

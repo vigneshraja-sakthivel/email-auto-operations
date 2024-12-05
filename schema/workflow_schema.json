@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "condition": {
+      "type": "string",
+      "enum": ["any", "all"]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field_name": {
+            "type": "string",
+            "enum": ["from", "to", "subject", "date_received"]
+          },
+          "predicate": {
+            "type": "string",
+            "enum": [
+              "contains",
+              "does_not_contains",
+              "not_equals",
+              "equals",
+              "less_than",
+              "greater_than"
+            ]
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "value_unit": {
+            "type": "string",
+            "enum": ["days", "months"]
+          }
+        },
+        "required": ["field_name", "predicate", "value"],
+        "allOf": [
+          {
+            "if": {
+              "properties": { "field_name": { "enum": ["from", "to", "subject"] } }
+            },
+            "then": {
+              "properties": {
+                "predicate": {
+                  "enum": ["contains", "does_not_contains", "not_equals", "equals"]
+                },
+                "value": { "type": "string" }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "field_name": { "const": "date_received" } }
+            },
+            "then": {
+              "properties": {
+                "predicate": { "enum": ["less_than", "greater_than"] },
+                "value": { "type": "integer" },
+                "value_unit": { "type": "string", "enum": ["days", "months"] }
+              },
+              "required": ["value_unit"]
+            }
+          }
+        ]
+      }
+    },
+    "action": {
+      "type": "string",
+      "enum": ["mark_read", "move"]
+    },
+    "action_target": {
+      "type": "string"
+    }
+  },
+  "required": ["description", "condition", "rules", "action", "action_target"]
+}

@@ -60,7 +60,7 @@ class DbClient:
             cursor_factory=psycopg2.extras.DictCursor
         )
 
-    def insert(self, table, data):
+    def insert(self, table, data) -> int:
         """
         Insert a record into the specified table.
 
@@ -71,7 +71,7 @@ class DbClient:
         columns = data.keys()
         values = data.values()
         query = sql.SQL(
-            "INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+            "INSERT INTO {table} ({columns}) VALUES ({placeholders}) RETURNING ID"
         ).format(
             table=sql.Identifier(table),
             columns=sql.SQL(", ").join(map(sql.Identifier, columns)),
@@ -79,6 +79,9 @@ class DbClient:
         )
 
         self._execute(query, tuple(values))
+        response = self._cursor.fetchone()
+
+        return response[0] if response else None
 
     def update(self, table, data, condition):
         """
@@ -97,7 +100,7 @@ class DbClient:
             where_clause=sql.SQL(" AND ").join(where_clause),
         )
         params = {**data, **condition}
-        self._execute(query, params)
+        return self._execute(query, params)
 
     def delete(self, table, condition):
         """
@@ -112,7 +115,7 @@ class DbClient:
             table=sql.Identifier(table),
             where_clause=sql.SQL(" AND ").join(where_clause),
         )
-        self._execute(query, condition)
+        return self._execute(query, condition)
 
     def fetch(self, table, condition=None):
         """

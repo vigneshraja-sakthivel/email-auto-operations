@@ -11,11 +11,11 @@ class CommandProcessorInterface(ABC):
     """
 
     @abstractmethod
-    def execute(self, params):
+    def execute(self, params: dict = None):
         """
         Process the commands
 
         Args:
-            params: Dictionary containing parameters required for executing the command
+            params(dict, optional): Dictionary containing parameters required for executing the command
         """
         raise NotImplementedError("Subclasses must implement this method")

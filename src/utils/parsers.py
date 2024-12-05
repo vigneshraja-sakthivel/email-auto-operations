@@ -13,6 +13,8 @@ Functions:
 """
 
 import re
+import json
+import os
 from bs4 import BeautifulSoup
 
 
@@ -80,3 +82,27 @@ def extract_plain_text_from_html(html_content):
     """
     soup = BeautifulSoup(html_content, "html.parser")
     return soup.get_text()
+
+
+def parse_json_file(file_path: str) -> dict | list:
+    """
+    Parses a JSON file and returns the data in the json file.
+    Args:
+        rule_file (str): The path to the rule file to be parsed.
+    Returns:
+        list: A list of rules parsed from the JSON file.
+    Raises:
+        FileNotFoundError: If the rule file does not exist.
+        ValueError: If there is an error parsing the JSON from the rule file.
+    """
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Rule file {file_path} not found.")
+
+    with open(file_path, "r") as file:
+        try:
+            rules = json.load(file)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Error parsing JSON from rule file {file_path}: {e}")
+
+    return rules

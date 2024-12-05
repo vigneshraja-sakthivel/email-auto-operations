@@ -21,6 +21,8 @@ GMAIL_CONFIGURATIONS = {
     "token_path": f"{TMP_DIRECTORY}/gmail_token.json",
 }
 
+WORKFLOW_VALIDATION_SCHEMA = f"{APP_PATH}/schema/workflow_schema.json"
+
 # Load environment variables from .env file
 load_dotenv()
 

@@ -2,8 +2,9 @@ import argparse
 import os
 
 from config import DB_CONFIGURATIONS, GMAIL_CONFIGURATIONS, TMP_DIRECTORY
-from command_processor.email_fetcher import EmailFetcher
 from command_processor.command_processor_interface import CommandProcessorInterface
+from command_processor.email_fetcher import EmailFetcher
+from command_processor.workflow_processor import WorkflowProcessor
 from db.db_client import DbClient
 from email_clients.email_client_interface import EmailClientInterface
 from email_clients.gmail.gmail_client import GmailClient
@@ -20,34 +21,18 @@ def _get_email_client() -> EmailClientInterface:
     return GmailClient(GMAIL_CONFIGURATIONS)
 
 
-def _get_db_client() -> DbClient:
-    """
-    Returns the db client based on the configuration
-    """
-    return DbClient(DB_CONFIGURATIONS)
-
-
-def _get_processor() -> CommandProcessorInterface:
+def _get_processor_and_arguments(command_details) -> CommandProcessorInterface:
     """
     Returns the processor based on the configuration
     """
-    return EmailFetcher(_get_email_client(), _get_db_client())
-
-
-def _add_email_argument(parser: argparse.ArgumentParser):
-    """
-    Adds an email argument to the given parser.
-
-    This function configures the parser to accept an email address as input. The
-    email argument is marked as required and expects a valid string.
-
-    Args:
-        parser (argparse.ArgumentParser): The argument parser to which the email
-                                          argument will be added.
-    """
-    parser.add_argument(
-        "--email", type=str, required=True, help="Specify an email address"
-    )
+    if command_details.command == "fetch":
+        return EmailFetcher(_get_email_client()), {
+            "folder": command_details.folder,
+        }
+    if command_details.command == "workflow-processor":
+        return WorkflowProcessor(_get_email_client()), {
+            "workflow_file_path": command_details.workflow_file_path,
+        }
 
 
 def _init_app():
@@ -72,22 +57,38 @@ def main():
         dest="command", required=True, help="Command to be executed"
     )
 
-    fetch_email_process_parser = subparsers.add_parser(
+    email_fetcher = subparsers.add_parser(
         "fetch", help="Pulls the email messages for the given email address"
     )
-    apply_rules_process_parser = subparsers.add_parser(
-        "apply-rules", help="Pulls the email messages for the given email address"
+
+    email_fetcher.add_argument(
+        "--folder",
+        type=str,
+        required=False,
+        help="Specify the folder name to fetch the emails",
     )
-    _add_email_argument(fetch_email_process_parser)
-    _add_email_argument(apply_rules_process_parser)
+
+    workflow_process_parser = subparsers.add_parser(
+        "workflow-processor",
+        help="Pulls the email messages for the given email address",
+    )
+
+    workflow_process_parser.add_argument(
+        "--workflow-file-path",
+        type=str,
+        required=True,
+        help="Specify the path of the workflow rule file",
+    )
 
     # Parse the arguments
-    parser.parse_args()
+    command_details = parser.parse_args()
     logger.info("Arguments parsed successfully. Implement the logic here.")
     logger.info("Initializing the application")
     _init_app()
     logger.info("Initialied the application successfully")
-    _get_processor().execute()
+    processor, arguments = _get_processor_and_arguments(command_details)
+    print(arguments)
+    processor.execute(arguments)
 
 
 if __name__ == "__main__":
